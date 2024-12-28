@@ -1,8 +1,13 @@
-import { addHours } from "date-fns";
-import { useState } from "react";
+import { addHours, differenceInSeconds } from "date-fns";
+import { useMemo, useState } from "react";
 import Modal from "react-modal";
-import DatePicker from "react-datepicker";
+import DatePicker, { registerLocale } from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import es from "date-fns/locale/es";
+import Swal from "sweetalert2";
+import "sweetalert2/dist/sweetalert2.min.css";
+
+registerLocale("es", es);
 
 const customStyles = {
   content: {
@@ -14,14 +19,27 @@ const customStyles = {
     transform: "translate(-50%, -50%)",
   },
 };
+
 export const CalendarModal = () => {
   const [isOpen, setIsOpen] = useState(true);
+  const [formSubmitted, setFormSubmitted] = useState(false);
   const [formValues, setFormValues] = useState({
     title: "Tete",
     notes: "Toro",
     start: new Date(),
     end: addHours(new Date(), 2),
   });
+  const maxCharacters = 240;
+
+  const titleClass = useMemo(() => {
+    if (!formSubmitted) return "";
+    return formValues.title.length > 4 ? "is-valid" : "is-invalid";
+  }, [formValues.title, formSubmitted]);
+
+  const descriptionClass = useMemo(() => {
+    if (!formSubmitted) return "";
+    return formValues.notes.length > maxCharacters ? "is-invalid" : "is-valid";
+  }, [formValues.notes, formSubmitted]);
 
   const changeFormValues = ({ target }) => {
     setFormValues({
@@ -41,6 +59,20 @@ export const CalendarModal = () => {
     console.log("close modal");
     setIsOpen(false);
   };
+
+  const onSubmit = (event) => {
+    event.preventDefault();
+    setFormSubmitted(true);
+
+    const difference = differenceInSeconds(formValues.end, formValues.start);
+    if (isNaN(difference) || difference < 0) {
+      Swal.fire("Fechas incorrectas", "Revisar las fechas ingresadas", "error");
+      return;
+    }
+    if (formValues.title.trim().length < 2) return;
+    console.log(formValues);
+  };
+
   Modal.setAppElement("#root");
   return (
     <Modal
@@ -54,19 +86,32 @@ export const CalendarModal = () => {
     >
       <h1> Nuevo evento </h1>
       <hr />
-      <form className="container">
+      <form className="container" onSubmit={onSubmit}>
         <div className="form-group mb-2">
           <label>Fecha y hora inicio</label>
           <DatePicker
-            className="form-control"
             selected={formValues.start}
             onChange={(event) => onDateChanged(event, "start")}
+            className="form-control"
+            dateFormat="Pp"
+            showTimeSelect
+            locale="es"
+            timeCaption="Hora"
           />
         </div>
 
         <div className="form-group mb-2">
           <label>Fecha y hora fin</label>
-          <input className="form-control" placeholder="Fecha inicio" />
+          <DatePicker
+            minDate={formValues.start}
+            selected={formValues.end}
+            onChange={(event) => onDateChanged(event, "end")}
+            className="form-control"
+            dateFormat="Pp"
+            showTimeSelect
+            locale="es"
+            timeCaption="Hora"
+          />
         </div>
 
         <hr />
@@ -74,7 +119,7 @@ export const CalendarModal = () => {
           <label>Titulo y notas</label>
           <input
             type="text"
-            className="form-control"
+            className={`form-control ${titleClass}`}
             placeholder="Título del evento"
             name="title"
             autoComplete="off"
@@ -89,7 +134,7 @@ export const CalendarModal = () => {
         <div className="form-group mb-2">
           <textarea
             type="text"
-            className="form-control"
+            className={`form-control ${descriptionClass}`}
             placeholder="Notas"
             rows="5"
             name="notes"
@@ -97,7 +142,8 @@ export const CalendarModal = () => {
             onChange={changeFormValues}
           ></textarea>
           <small id="emailHelp" className="form-text text-muted">
-            Información adicional
+            Información adicional:{" "}
+            <span>{`(${formValues.notes.length}-${maxCharacters}) caracteres`}</span>
           </small>
         </div>
 
