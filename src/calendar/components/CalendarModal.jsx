@@ -1,11 +1,16 @@
+import { useMemo, useState, useEffect } from "react";
 import { addHours, differenceInSeconds } from "date-fns";
-import { useMemo, useState } from "react";
-import Modal from "react-modal";
-import DatePicker, { registerLocale } from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
-import es from "date-fns/locale/es";
+
 import Swal from "sweetalert2";
 import "sweetalert2/dist/sweetalert2.min.css";
+
+import Modal from "react-modal";
+
+import DatePicker, { registerLocale } from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+
+import es from "date-fns/locale/es";
+import { useCalendarStore, useUiStore } from "../../hooks";
 
 registerLocale("es", es);
 
@@ -20,28 +25,40 @@ const customStyles = {
   },
 };
 
+Modal.setAppElement("#root");
+
 export const CalendarModal = () => {
-  const [isOpen, setIsOpen] = useState(true);
+  const { isDateModalOpen, closeDateModal } = useUiStore();
+  const { activeEvent, startSavingEvent } = useCalendarStore();
+
   const [formSubmitted, setFormSubmitted] = useState(false);
+
   const [formValues, setFormValues] = useState({
-    title: "Tete",
-    notes: "Toro",
+    title: "",
+    notes: "",
     start: new Date(),
     end: addHours(new Date(), 2),
   });
-  const maxCharacters = 240;
 
   const titleClass = useMemo(() => {
     if (!formSubmitted) return "";
-    return formValues.title.length > 4 ? "is-valid" : "is-invalid";
+
+    return formValues.title.length > 0 ? "" : "is-invalid";
   }, [formValues.title, formSubmitted]);
 
+  const maxCharacters = 120;
   const descriptionClass = useMemo(() => {
-    if (!formSubmitted) return "";
-    return formValues.notes.length > maxCharacters ? "is-invalid" : "is-valid";
+    if (!formSubmitted || !formValues.notes) return "";
+    return formValues.notes.length > maxCharacters ? "is-invalid" : "";
   }, [formValues.notes, formSubmitted]);
 
-  const changeFormValues = ({ target }) => {
+  useEffect(() => {
+    if (activeEvent !== null) {
+      setFormValues({ ...activeEvent });
+    }
+  }, [activeEvent]);
+
+  const onInputChanged = ({ target }) => {
     setFormValues({
       ...formValues,
       [target.name]: target.value,
@@ -56,30 +73,35 @@ export const CalendarModal = () => {
   };
 
   const onCloseModal = () => {
-    console.log("close modal");
-    setIsOpen(false);
+    closeDateModal();
   };
 
-  const onSubmit = (event) => {
+  const onSubmit = async (event) => {
     event.preventDefault();
     setFormSubmitted(true);
 
     const difference = differenceInSeconds(formValues.end, formValues.start);
-    if (isNaN(difference) || difference < 0) {
+
+    if (isNaN(difference) || difference <= 0) {
       Swal.fire("Fechas incorrectas", "Revisar las fechas ingresadas", "error");
       return;
     }
-    if (formValues.title.trim().length < 2) return;
+
+    if (formValues.title.length <= 0) return;
+
     console.log(formValues);
+
+    // TODO:
+    await startSavingEvent(formValues);
+    closeDateModal();
+    setFormSubmitted(false);
   };
 
-  Modal.setAppElement("#root");
   return (
     <Modal
-      isOpen={isOpen}
+      isOpen={isDateModalOpen}
       onRequestClose={onCloseModal}
       style={customStyles}
-      contentLabel="Example Modal"
       className="modal"
       overlayClassName="modal-fondo"
       closeTimeoutMS={200}
@@ -124,7 +146,7 @@ export const CalendarModal = () => {
             name="title"
             autoComplete="off"
             value={formValues.title}
-            onChange={changeFormValues}
+            onChange={onInputChanged}
           />
           <small id="emailHelp" className="form-text text-muted">
             Una descripción corta
@@ -134,16 +156,21 @@ export const CalendarModal = () => {
         <div className="form-group mb-2">
           <textarea
             type="text"
+            // className="form-control"
             className={`form-control ${descriptionClass}`}
             placeholder="Notas"
             rows="5"
             name="notes"
             value={formValues.notes}
-            onChange={changeFormValues}
+            onChange={onInputChanged}
           ></textarea>
           <small id="emailHelp" className="form-text text-muted">
-            Información adicional:{" "}
-            <span>{`(${formValues.notes.length}-${maxCharacters}) caracteres`}</span>
+            Información adicional
+            <span>
+              {`(${
+                formValues.notes ? formValues.notes.length : 0
+              }-${maxCharacters}) caracteres`}
+            </span>
           </small>
         </div>
 
