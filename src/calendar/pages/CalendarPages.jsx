@@ -11,9 +11,11 @@ import {
 } from "../";
 
 import { getMessagesES, localizer } from "../../helpers";
-import { useUiStore, useCalendarStore } from "../../hooks";
+import { useUiStore, useCalendarStore, useAuthStore } from "../../hooks";
 
 export const CalendarPages = () => {
+  const { user } = useAuthStore();
+
   const { openDateModal } = useUiStore();
   const { events, setActiveEvent, startLoadingEvents } = useCalendarStore();
   const [lastView, setlastView] = useState(
@@ -21,8 +23,11 @@ export const CalendarPages = () => {
   );
 
   const eventStyleGetter = (event, start, end, isSelected) => {
+    const isMyEvent =
+      user.uid === event.user._id || user.uid === event.user.uid;
+
     const style = {
-      backgroundColor: "#367CF7",
+      backgroundColor: isMyEvent ? "#367CF7" : "#465660",
       borderRadius: "0px",
       opacity: 0.8,
       display: "block",
